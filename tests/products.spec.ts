@@ -1,75 +1,107 @@
 import { test, expect } from '@playwright/test';
+import { LoginPage } from '../pages/LoginPage';
+import { InventoryPage, type Product } from '../pages/InventoryPage';
 
 test.beforeEach(async ({ page }) => {
-  await page.goto('https://www.saucedemo.com/');
+  const loginPage = new LoginPage(page);
 
-  await page.locator('[data-test="username"]').fill('standard_user');
-  await page.locator('[data-test="password"]').fill('secret_sauce');
-  await page.locator('[data-test="login-button"]').click();
+  await loginPage.goto();
+  await loginPage.login('standard_user', 'secret_sauce');
 
-  await expect(page).toHaveURL(/inventory\.html/);
+  await expect(page.getByTestId('title')).toHaveText('Products');
 });
 
-test('add two products and remove one from the cart', async ({ page }) => {
-  // Add two different products.
+// Each scenario first switches to the opposite order, so the target sort
+// has to genuinely reorder the list (A–Z is the default and would otherwise
+// pass without the sort doing anything).
+const sortScenarios: {
+  id: string;
+  label: string;
+  value: string;
+  opposite: string;
+  isOrdered: (products: Product[]) => boolean;
+}[] = [
+  {
+    id: 'CAT-01',
+    label: 'price from low to high',
+    value: 'lohi',
+    opposite: 'hilo',
+    isOrdered: p => p.every((x, i) => i === 0 || p[i - 1].price <= x.price),
+  },
+  {
+    id: 'CAT-03',
+    label: 'price from high to low',
+    value: 'hilo',
+    opposite: 'lohi',
+    isOrdered: p => p.every((x, i) => i === 0 || p[i - 1].price >= x.price),
+  },
+  {
+    id: 'CAT-04',
+    label: 'name A–Z',
+    value: 'az',
+    opposite: 'za',
+    isOrdered: p =>
+      p.every((x, i) => i === 0 || p[i - 1].name.localeCompare(x.name) <= 0),
+  },
+  {
+    id: 'CAT-05',
+    label: 'name Z–A',
+    value: 'za',
+    opposite: 'az',
+    isOrdered: p =>
+      p.every((x, i) => i === 0 || p[i - 1].name.localeCompare(x.name) >= 0),
+  },
+];
+
+// Order-independent view of the catalogue: one "name|price" key per product.
+const asSet = (products: Product[]) =>
+  products.map(p => `${p.name}|${p.price}`).sort();
+
+for (const scenario of sortScenarios) {
+  test(`${scenario.id}: sorting by ${scenario.label} keeps every product`, async ({ page }) => {
+    const inventory = new InventoryPage(page);
+
+    // Baseline: the full catalogue in its default order.
+    const original = await inventory.catalog();
+    expect(original).toHaveLength(6);
+
+    await inventory.sortBy(scenario.opposite);
+    await expect
+      .poll(async () => (await inventory.catalog()).length)
+      .toBe(original.length);
+
+    await inventory.sortBy(scenario.value);
+    await expect(page.getByTestId('product-sort-container'))
+      .toHaveValue(scenario.value);
+
+    // Wait for the new ordering to be applied before reading the result.
+    await expect
+      .poll(async () => scenario.isOrdered(await inventory.catalog()), {
+        message: `Products should be sorted by ${scenario.label}`,
+      })
+      .toBe(true);
+
+    // Sorting must only reorder: same products, same prices, none lost
+    // or duplicated.
+    const sorted = await inventory.catalog();
+    expect(sorted).toHaveLength(original.length);
+    expect(asSet(sorted)).toEqual(asSet(original));
+  });
+}
+
+test('CAT-02: product details show the selected product', async ({ page }) => {
   await page
-    .locator('[data-test="add-to-cart-sauce-labs-backpack"]')
+    .getByText('Sauce Labs Backpack', { exact: true })
     .click();
 
-  await page
-    .locator('[data-test="add-to-cart-sauce-labs-bike-light"]')
-    .click();
+  await expect(page).toHaveURL(/\/inventory-item\.html\?id=4$/);
 
-  // Check that the cart badge shows 2.
-  const cartBadge = page.locator('[data-test="shopping-cart-badge"]');
-  await expect(cartBadge).toHaveText('2');
+  // Check product identity and price, not just navigation.
+  await expect(page.getByTestId('inventory-item-name'))
+    .toHaveText('Sauce Labs Backpack');
 
-  // Open the cart and check both product names.
-  await page.locator('[data-test="shopping-cart-link"]').click();
+  await expect(page.getByTestId('inventory-item-price'))
+    .toHaveText('$29.99');
 
-  const cartItems = page.locator('[data-test="inventory-item"]');
-  const productNames = cartItems.locator('[data-test="inventory-item-name"]');
-
-  await expect(cartItems).toHaveCount(2);
-  await expect(productNames).toHaveText([
-    'Sauce Labs Backpack',
-    'Sauce Labs Bike Light',
-  ]);
-
-  // Remove the backpack.
-  await page
-    .locator('[data-test="remove-sauce-labs-backpack"]')
-    .click();
-
-  // Check that only the bike light remains.
-  await expect(cartItems).toHaveCount(1);
-  await expect(productNames).toHaveText(['Sauce Labs Bike Light']);
-  await expect(cartBadge).toHaveText('1');
-});
-
-test('sort products by price from high to low', async ({ page }) => {
-  // Select the "Price (high to low)" option.
-  await page
-    .locator('[data-test="product-sort-container"]')
-    .selectOption('hilo');
-
-  const priceLabels = page.locator('[data-test="inventory-item-price"]');
-
-  // Check that products are displayed before reading their prices.
-  await expect(priceLabels).toHaveCount(6);
-
-  // Retry the comparison until the displayed prices are sorted.
-  await expect(async () => {
-    const priceTexts = await priceLabels.allTextContents();
-
-    // Convert "$29.99" into the number 29.99.
-    const actualPrices = priceTexts.map((text) =>
-      Number(text.replace('$', '').trim())
-    );
-
-    // Sort a copy to calculate the expected order.
-    const expectedPrices = [...actualPrices].sort((a, b) => b - a);
-
-    expect(actualPrices).toEqual(expectedPrices);
-  }).toPass();
+  await expect(page.getByTestId('back-to-products')).toBeVisible();
 });

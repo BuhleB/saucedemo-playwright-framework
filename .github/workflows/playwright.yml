@@ -1,5 +1,6 @@
 name: Playwright Tests
 on:
+  workflow_dispatch:
   push:
     branches: [ main, master ]
   pull_request:
@@ -18,10 +19,16 @@ jobs:
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
     - name: Run Playwright tests
-      run: npx playwright test
+      run: npm test
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
       with:
         name: playwright-report
         path: playwright-report/
         retention-days: 30
+    - uses: actions/upload-artifact@v4
+      if: failure()
+      with:
+        name: failure-traces
+        path: test-results/
+        retention-days: 14

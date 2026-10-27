@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test('Browser alert can be accepted', async ({ page }) => {
+test('EXT-01: browser alert can be accepted @external', async ({ page }) => {
   await page.goto('https://the-internet.herokuapp.com/javascript_alerts');
 
   page.once('dialog', async dialog => {
@@ -16,7 +16,7 @@ test('Browser alert can be accepted', async ({ page }) => {
     .toHaveText('You successfully clicked an alert');
 });
 
-test('Dynamically loaded text becomes visible', async ({ page }) => {
+test('EXT-02: dynamically loaded text becomes visible @external', async ({ page }) => {
   await page.goto(
     'https://the-internet.herokuapp.com/dynamic_loading/1'
   );

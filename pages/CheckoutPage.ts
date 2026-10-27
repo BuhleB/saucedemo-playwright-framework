@@ -24,4 +24,16 @@ export class CheckoutPage {
       .getByRole('button', { name: 'Finish', exact: true })
       .click();
   }
+
+  async cancel() {
+    await this.page
+      .getByRole('button', { name: 'Cancel', exact: true })
+      .click();
+  }
+
+  async backHome() {
+    await this.page
+      .getByRole('button', { name: 'Back Home', exact: true })
+      .click();
+  }
 }
