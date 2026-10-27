@@ -62,11 +62,9 @@ To run one file or test: `npx playwright test tests/checkout.spec.ts` or `npx pl
 
 ## Latest verified run
 
-> To be completed after the first run of the corrected suite.
-
 | Date | Command | Result | Workflow run | Report |
 | --- | --- | --- | --- | --- |
-| _YYYY-MM-DD_ | `npm test` | _x passed / y failed_ | _link to Actions run_ | _link to dated report_ |
+| 2026-10-27 | npm run test:chromium | 32 passed, 0 failed (Chromium, 167.6 s) | [Actions run](https://github.com/BuhleB/saucedemo-playwright-framework/actions/runs/40428718043) | [link to report](https://github.com/BuhleB/saucedemo-playwright-framework/blob/main/reports/2026-10-27-chromium.md) |
 
 ## Current limitations
 
