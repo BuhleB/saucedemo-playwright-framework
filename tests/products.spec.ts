@@ -96,12 +96,15 @@ test('CAT-02: product details show the selected product', async ({ page }) => {
 
   await expect(page).toHaveURL(/\/inventory-item\.html\?id=4$/);
 
+  // The URL changes before the details page is drawn, so wait for an
+  // element that only exists there. Until the product list is gone,
+  // the name/price locators below would match all six products.
+  await expect(page.getByTestId('back-to-products')).toBeVisible();
+
   // Check product identity and price, not just navigation.
   await expect(page.getByTestId('inventory-item-name'))
     .toHaveText('Sauce Labs Backpack');
 
   await expect(page.getByTestId('inventory-item-price'))
     .toHaveText('$29.99');
-
-  await expect(page.getByTestId('back-to-products')).toBeVisible();
 });
